@@ -66,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test
     if: github.event_name == 'push'
+    continue-on-error: true   # Pipeline keeps going even if SonarCloud is unreachable or token is missing
     defaults:
       run:
         working-directory: backend
@@ -89,8 +90,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mvn -B verify sonar:sonar \
-            -Dsonar.projectKey=inventory-backend \
-            -Dsonar.organization=${{ github.repository_owner }} \
+            -Dsonar.projectKey=hlaingminpaing_inventory-management-system-java-monorepo \
+            -Dsonar.organization=hlaingminpaing \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
@@ -203,4 +204,5 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add k8s/backend/deployment.yaml
           git diff --staged --quiet || git commit -m "chore(gitops): update backend image to sha-${{ github.sha }} [skip ci]"
+          git pull --rebase origin main
           git push
