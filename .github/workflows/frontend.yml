@@ -1,0 +1,189 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/inventory-frontend
+
+jobs:
+  # ─────────────────────────────────────────
+  # Job 1: Install, Lint & Build
+  # ─────────────────────────────────────────
+  build:
+    name: npm Install & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  # ─────────────────────────────────────────
+  # Job 2: SonarCloud Scan
+  # ─────────────────────────────────────────
+  sonar-scan:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          projectBaseDir: frontend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # ─────────────────────────────────────────
+  # Job 3: Docker Build & Push
+  # ─────────────────────────────────────────
+  docker-build-push:
+    name: Docker Build & Push to GHCR
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────
+  # Job 4: Trivy Security Scan
+  # ─────────────────────────────────────────
+  trivy-scan:
+    name: Trivy Image Security Scan
+    runs-on: ubuntu-latest
+    needs: docker-build-push
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      security-events: write
+
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: 'sarif'
+          output: 'trivy-frontend.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend.sarif
+
+  # ─────────────────────────────────────────
+  # Job 5: GitOps - Update K8s Manifests
+  # ─────────────────────────────────────────
+  gitops-update:
+    name: GitOps - Update K8s Image Tag
+    runs-on: ubuntu-latest
+    needs: [docker-build-push, trivy-scan]
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update frontend image tag in K8s manifest
+        run: |
+          IMAGE_TAG="sha-${{ github.sha }}"
+          sed -i "s|image: ghcr.io/.*/inventory-frontend:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}|g" \
+            k8s/frontend/deployment.yaml
+          echo "Updated frontend deployment to use image tag: ${IMAGE_TAG}"
+
+      - name: Commit and push updated manifest
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add k8s/frontend/deployment.yaml
+          git diff --staged --quiet || git commit -m "chore(gitops): update frontend image to sha-${{ github.sha }} [skip ci]"
+          git push

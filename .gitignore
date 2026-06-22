@@ -1,0 +1,38 @@
+# Monorepo .gitignore
+
+# ─── Java / Maven ───────────────────────────────────────
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/*.log
+*.class
+*.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ─── Node / Frontend ────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+frontend/coverage/
+*.local
+
+# ─── Environment ────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── IDE ────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ─── Docker ─────────────────────────────────────────────
+.docker/
+
+# ─── Kubernetes ─────────────────────────────────────────
+# Don't ignore k8s manifests, but ignore local configs
+kubeconfig
+*.kubeconfig

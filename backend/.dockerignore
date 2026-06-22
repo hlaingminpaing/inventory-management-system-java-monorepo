@@ -1,0 +1,5 @@
+.mvn/
+target/
+*.md
+.env
+.git/
