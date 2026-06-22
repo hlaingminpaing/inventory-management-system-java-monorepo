@@ -10,6 +10,13 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+  # Allows manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual run'
 
 env:
   REGISTRY: ghcr.io
