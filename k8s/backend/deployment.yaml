@@ -44,7 +44,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: backend
-          image: ghcr.io/YOUR_GITHUB_USERNAME/inventory-backend:latest
+          image: ghcr.io/hlaingminpaing/inventory-backend:sha-46db9149d99b5ee664411f5f3bfdf61a8e5425f4
           ports:
             - containerPort: 8080
               name: http
