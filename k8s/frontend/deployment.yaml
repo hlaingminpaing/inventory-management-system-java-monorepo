@@ -27,7 +27,7 @@ spec:
         runAsGroup: 101
       containers:
         - name: frontend
-          image: ghcr.io/YOUR_GITHUB_USERNAME/inventory-frontend:latest
+          image: ghcr.io/hlaingminpaing/inventory-frontend:sha-60df7cecb04fd91973228597bae588c5a1fa56bd
           ports:
             - containerPort: 80
               name: http
