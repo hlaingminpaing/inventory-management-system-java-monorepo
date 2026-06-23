@@ -44,7 +44,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: backend
-          image: ghcr.io/hlaingminpaing/inventory-backend:v1.6
+          image: ghcr.io/hlaingminpaing/inventory-backend:v1.8
           ports:
             - containerPort: 8080
               name: http
