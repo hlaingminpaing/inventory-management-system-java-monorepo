@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
 @Tag(name = "Dashboard", description = "Dashboard metrics endpoint")
-@CrossOrigin(origins = "*")
 public class DashboardController {
 
     private final DashboardService dashboardService;

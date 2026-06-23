@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +34,7 @@ public class TransactionService {
     public List<TransactionResponseDto> getRecentTransactions() {
         return transactionRepository.findTop10ByOrderByCreatedAtDesc().stream()
                 .map(this::toResponseDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public TransactionResponseDto createTransaction(TransactionRequestDto request) {
