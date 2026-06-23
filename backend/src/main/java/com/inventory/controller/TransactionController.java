@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/transactions")
 @RequiredArgsConstructor
 @Tag(name = "Transactions", description = "Inventory transaction endpoints")
-@CrossOrigin(origins = "*")
 public class TransactionController {
 
     private final TransactionService transactionService;
